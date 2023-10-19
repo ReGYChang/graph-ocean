@@ -24,31 +24,26 @@ import java.lang.annotation.*;
 public @interface GraphProperty {
 
     /**
-     *
      * @return 属性名称
      */
-    String value();
+    String value() default "vid";
 
     /**
-     *
      * @return 数据类型
      */
     GraphDataTypeEnum dataType() default GraphDataTypeEnum.NULL;
 
     /**
-     *
      * @return 是否必需
      */
     boolean required() default false;
 
     /**
-     *
      * @return 属性类型
      */
     GraphPropertyTypeEnum propertyTypeEnum() default GraphPropertyTypeEnum.ORDINARY_PROPERTY;
 
     /**
-     *
      * @return 属性格式化
      */
     Class<? extends GraphValueFormatter> formatter() default GraphValueFormatter.class;

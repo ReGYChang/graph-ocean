@@ -13,9 +13,11 @@ import io.github.anyzm.graph.ocean.domain.GraphLabel;
 import io.github.anyzm.graph.ocean.domain.GraphQuery;
 import io.github.anyzm.graph.ocean.domain.impl.GraphEdgeType;
 import io.github.anyzm.graph.ocean.domain.impl.GraphVertexType;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Description  NebulaQueryUtils is used for
@@ -77,23 +79,37 @@ public class NebulaQueryUtils {
     }
 
     private static void yieldWithDistinct(boolean distinct, GraphTypeManager graphTypeManager, StringBuilder sqlBuilder, String prefix, Class clazz, String... fields) {
-        GraphLabel graphLabel = graphTypeManager.getGraphLabel(clazz);
-        String name = graphLabel.getName();
+        GraphLabel graphLabel = Optional.ofNullable(graphTypeManager.getGraphLabel(clazz))
+                .orElseThrow(() -> new IllegalArgumentException("Graph label not found for class: " + clazz));
+
+        String name = Optional.ofNullable(graphLabel.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Graph label name is null"));
+
         sqlBuilder.append(" yield ");
+
         if (distinct) {
             sqlBuilder.append("distinct ");
+    }
+
+        if ("*".equals(name)) {
+            sqlBuilder.append("vertex as v ");
+        } else {
+            String fieldMappings =
+                    Stream.of(fields).map(
+                                    field -> {
+                                        String fieldName = Optional.ofNullable(graphLabel.getFieldName(field))
+                                                .orElseThrow(() -> new IllegalArgumentException("Field name is null for field: " + field));
+
+                                        String propertyName = Optional.ofNullable(graphLabel.getPropertyName(fieldName))
+                                                .orElseThrow(() -> new IllegalArgumentException("Property name is null for field: " + field));
+
+                                        return Optional.ofNullable(prefix)
+                                                .orElse("") + name + "." + fieldName + " as " + propertyName;
+                                    })
+                            .collect(Collectors.joining(","));
+
+            sqlBuilder.append(fieldMappings);
         }
-        for (String field : fields) {
-            String fieldName = graphLabel.getFieldName(field);
-            String propertyName = graphLabel.getPropertyName(fieldName);
-            StringBuilder temp = new StringBuilder();
-            if (StringUtils.isNotBlank(prefix)) {
-                temp.append(prefix);
-            }
-            temp.append(name).append(".").append(fieldName).append(" as ").append(propertyName);
-            sqlBuilder.append(temp).append(",");
-        }
-        sqlBuilder.deleteCharAt(sqlBuilder.length() - 1);
     }
 
     public static void yieldDistinct(GraphTypeManager graphTypeManager, StringBuilder sqlBuilder, Class clazz, String... fields) {
@@ -283,4 +299,7 @@ public class NebulaQueryUtils {
         sqlBuilder.deleteCharAt(sqlBuilder.length() - 1);
     }
 
+    public static void asVertex(StringBuilder sqlBuilder) {
+        sqlBuilder.append("vertex as v;");
+    }
 }

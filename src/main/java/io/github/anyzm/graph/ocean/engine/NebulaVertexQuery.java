@@ -14,7 +14,9 @@ import io.github.anyzm.graph.ocean.domain.impl.GraphVertexType;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Description  NebulaVertexQuery is used for
@@ -45,6 +47,31 @@ public class NebulaVertexQuery implements VertexQuery {
         sqlBuilder.append("fetch prop on ").append(vertexName);
         NebulaQueryUtils.appendVertexId(graphVertexType, sqlBuilder, vertexIds);
         sqlBuilder.deleteCharAt(sqlBuilder.length() - 1);
+        return this;
+    }
+
+    @Override
+    public VertexQuery fetchPropOn(List<Class<?>> classList, String... vertexIds) {
+        Optional.ofNullable(classList)
+                .filter(list -> !list.isEmpty())
+                .orElseThrow(() -> new IllegalArgumentException("classList cannot be null or empty"));
+
+        GraphVertexType<?> graphVertexType =
+                classList.stream()
+                        .findAny()
+                        .map(graphTypeManager::getGraphVertexType)
+                        .orElseThrow(() -> new IllegalArgumentException("GraphVertexType not found for provided class"));
+
+        sqlBuilder.append("fetch prop on *");
+        NebulaQueryUtils.appendVertexId(graphVertexType, sqlBuilder, vertexIds);
+        sqlBuilder.deleteCharAt(sqlBuilder.length() - 1);
+        return this;
+    }
+
+
+    @Override
+    public VertexQuery asVertex() {
+        NebulaQueryUtils.asVertex(sqlBuilder);
         return this;
     }
 

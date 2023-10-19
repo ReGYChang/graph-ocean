@@ -11,7 +11,14 @@ import com.vesoft.nebula.client.graph.exception.ClientServerIncompatibleExceptio
 import com.vesoft.nebula.client.graph.exception.IOErrorException;
 import com.vesoft.nebula.client.graph.exception.NotValidConnectionException;
 import io.github.anyzm.graph.ocean.common.utils.CollectionUtils;
-import io.github.anyzm.graph.ocean.dao.*;
+import io.github.anyzm.graph.ocean.dao.EdgeUpdateEngine;
+import io.github.anyzm.graph.ocean.dao.GraphEdgeEntityFactory;
+import io.github.anyzm.graph.ocean.dao.GraphMapper;
+import io.github.anyzm.graph.ocean.dao.GraphTypeManager;
+import io.github.anyzm.graph.ocean.dao.GraphUpdateEdgeEngineFactory;
+import io.github.anyzm.graph.ocean.dao.GraphUpdateVertexEngineFactory;
+import io.github.anyzm.graph.ocean.dao.GraphVertexEntityFactory;
+import io.github.anyzm.graph.ocean.dao.VertexUpdateEngine;
 import io.github.anyzm.graph.ocean.dao.impl.DefaultGraphEdgeEntityFactory;
 import io.github.anyzm.graph.ocean.dao.impl.DefaultGraphTypeManager;
 import io.github.anyzm.graph.ocean.dao.impl.DefaultGraphVertexEntityFactory;
@@ -19,8 +26,16 @@ import io.github.anyzm.graph.ocean.domain.EdgeQuery;
 import io.github.anyzm.graph.ocean.domain.GraphLabel;
 import io.github.anyzm.graph.ocean.domain.GraphQuery;
 import io.github.anyzm.graph.ocean.domain.VertexQuery;
-import io.github.anyzm.graph.ocean.domain.impl.*;
-import io.github.anyzm.graph.ocean.engine.*;
+import io.github.anyzm.graph.ocean.domain.impl.GraphEdgeEntity;
+import io.github.anyzm.graph.ocean.domain.impl.GraphEdgeType;
+import io.github.anyzm.graph.ocean.domain.impl.GraphVertexEntity;
+import io.github.anyzm.graph.ocean.domain.impl.GraphVertexType;
+import io.github.anyzm.graph.ocean.domain.impl.QueryResult;
+import io.github.anyzm.graph.ocean.engine.NebulaCondition;
+import io.github.anyzm.graph.ocean.engine.NebulaEdgeQuery;
+import io.github.anyzm.graph.ocean.engine.NebulaUpdateEdgeEngineFactory;
+import io.github.anyzm.graph.ocean.engine.NebulaUpdateVertexEngineFactory;
+import io.github.anyzm.graph.ocean.engine.NebulaVertexQuery;
 import io.github.anyzm.graph.ocean.enums.EdgeDirectionEnum;
 import io.github.anyzm.graph.ocean.enums.ErrorEnum;
 import io.github.anyzm.graph.ocean.exception.CheckThrower;
@@ -33,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.UnsupportedEncodingException;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -228,10 +244,21 @@ public class NebulaGraphMapper implements GraphMapper {
 
     @Override
     public <T> List<T> executeQuerySql(String sql, Class<T> clazz) throws
-            NebulaException, IllegalAccessException, InstantiationException, UnsupportedEncodingException, ClientServerIncompatibleException, AuthFailedException, NotValidConnectionException, IOErrorException {
+            NebulaException, ClientServerIncompatibleException, AuthFailedException, NotValidConnectionException, IOErrorException {
         QueryResult result = executeQuerySql(sql);
         GraphLabel graphLabel = graphTypeManager.getGraphLabel(clazz);
         return result.getEntities(graphLabel, clazz);
+    }
+
+    @Override
+    public Map<Class<?>, List<Object>> executeQuerySql(String sql, List<Class<?>> classList) throws NebulaException, IllegalAccessException, InstantiationException, UnsupportedEncodingException, ClientServerIncompatibleException, AuthFailedException, NotValidConnectionException, IOErrorException {
+        QueryResult result = executeQuerySql(sql);
+        Map<String, GraphLabel> labelMap =
+                classList.stream()
+                        .map(clazz -> graphTypeManager.getGraphLabel(clazz))
+                        .collect(Collectors.toMap(
+                                GraphLabel::getName, label -> label));
+        return result.getEntities(labelMap);
     }
 
     @Override
@@ -248,6 +275,11 @@ public class NebulaGraphMapper implements GraphMapper {
     public <T> List<T> executeQuery(GraphQuery query, Class<T> clazz) throws
             NebulaException, IllegalAccessException, InstantiationException, UnsupportedEncodingException, ClientServerIncompatibleException, AuthFailedException, NotValidConnectionException, IOErrorException {
         return executeQuerySql(query.buildSql(), clazz);
+    }
+
+    @Override
+    public Map<Class<?>, List<Object>> executeQuery(GraphQuery query, List<Class<?>> classList) throws NebulaException, IllegalAccessException, InstantiationException, UnsupportedEncodingException, ClientServerIncompatibleException, AuthFailedException, NotValidConnectionException, IOErrorException {
+        return executeQuerySql(query.buildSql(), classList);
     }
 
     @Override
@@ -277,4 +309,10 @@ public class NebulaGraphMapper implements GraphMapper {
         return executeQuery(query, vertexClazz);
     }
 
+    @Override
+    public Map<Class<?>, List<Object>> fetchVertexTags(List<Class<?>> classList, String... vertexIds) throws
+            UnsupportedEncodingException, IllegalAccessException, InstantiationException, ClientServerIncompatibleException, AuthFailedException, NotValidConnectionException, IOErrorException {
+        VertexQuery query = NebulaVertexQuery.build().fetchPropOn(classList, vertexIds).yield().asVertex();
+        return executeQuery(query, classList);
+    }
 }

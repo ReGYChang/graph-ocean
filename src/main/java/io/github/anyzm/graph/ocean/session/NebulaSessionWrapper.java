@@ -66,7 +66,7 @@ public class NebulaSessionWrapper implements NebulaSession {
 
     @Override
     public ResultSet executeQuery(String statement) throws NebulaExecuteException {
-        ResultSet resultSet = null;
+        ResultSet resultSet;
         try {
             log.debug("executeQuery执行nebula,ngql={}", statement);
             resultSet = this.session.execute(statement);
@@ -89,7 +89,10 @@ public class NebulaSessionWrapper implements NebulaSession {
             log.warn("executeQueryDefined execute fail,sql:" + statement);
             return new QueryResult();
         }
-        return new QueryResult(IntStream.range(0, resultSet.rowsSize()).mapToObj(i -> resultSet.rowValues(i)).collect(Collectors.toList()));
+        return new QueryResult(
+                IntStream.range(0, resultSet.rowsSize())
+                        .mapToObj(resultSet::rowValues)
+                        .collect(Collectors.toList()));
     }
 
     @Override
